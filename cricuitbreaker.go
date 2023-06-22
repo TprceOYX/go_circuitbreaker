@@ -44,6 +44,27 @@ type CricuitBreaker struct {
 	cycle        uint64
 }
 
+func NewCricuitBreaker(openInterval int64, threshold uint32) *CricuitBreaker {
+	if openInterval <= 0 {
+		openInterval = 60
+	}
+	if threshold <= 0 {
+		threshold = 5
+	}
+	return &CricuitBreaker{
+		s: &statistic{
+			requests:            0,
+			continuousSuccesses: 0,
+			continuousFailures:  0,
+		},
+		state:        StateClosed,
+		openInterval: openInterval,
+		openExpire:   0,
+		threshold:    threshold,
+		cycle:        0,
+	}
+}
+
 func (cb *CricuitBreaker) Execute(f func() bool) error {
 	state, cycle, err := cb.beforeExecute()
 	if err != nil {
