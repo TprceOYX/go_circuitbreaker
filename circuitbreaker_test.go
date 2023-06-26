@@ -7,16 +7,16 @@ import (
 	"time"
 )
 
-func success(cb *CricuitBreaker) error {
+func success(cb *CircuitBreaker) error {
 	return cb.Execute(func() bool { return true })
 }
 
-func fail(cb *CricuitBreaker) error {
+func fail(cb *CircuitBreaker) error {
 	return cb.Execute(func() bool { return false })
 }
 
 func TestCircuitBreaker(t *testing.T) {
-	cb := NewCricuitBreaker(1, 10)
+	cb := NewCircuitBreaker(1, 10)
 	count := 10
 	wg := &sync.WaitGroup{}
 	wg.Add(count - 1)
@@ -74,7 +74,7 @@ func TestCircuitBreakerParallel(t *testing.T) {
 	cpu := runtime.NumCPU()
 	total := num * cpu
 	result := make(chan error, total)
-	cb := NewCricuitBreaker(1, 10)
+	cb := NewCircuitBreaker(1, 10)
 	routine := func() {
 		for i := 0; i < num; i++ {
 			result <- success(cb)

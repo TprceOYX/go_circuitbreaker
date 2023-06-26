@@ -44,7 +44,7 @@ func (s *statistic) clear() {
 	atomic.StoreUint32(&s.continuousFailures, 0)
 }
 
-type CricuitBreaker struct {
+type CircuitBreaker struct {
 	// state 熔断器状态
 	// 默认为关闭状态，连续失败超过阈值后切换到开启状态
 	// 关闭->开启：连续失败超过阈值
@@ -64,14 +64,14 @@ type CricuitBreaker struct {
 	cycle uint32
 }
 
-func NewCricuitBreaker(openInterval int64, threshold uint32) *CricuitBreaker {
+func NewCircuitBreaker(openInterval int64, threshold uint32) *CircuitBreaker {
 	if openInterval <= 0 {
 		openInterval = 60
 	}
 	if threshold <= 0 {
 		threshold = 5
 	}
-	return &CricuitBreaker{
+	return &CircuitBreaker{
 		state:        StateClosed,
 		openInterval: openInterval,
 		threshold:    threshold,
@@ -85,7 +85,7 @@ func NewCricuitBreaker(openInterval int64, threshold uint32) *CricuitBreaker {
 	}
 }
 
-func (cb *CricuitBreaker) Execute(f func() bool) error {
+func (cb *CircuitBreaker) Execute(f func() bool) error {
 	cycle, err := cb.beforeExecute()
 	if err != nil {
 		return err
@@ -94,7 +94,7 @@ func (cb *CricuitBreaker) Execute(f func() bool) error {
 	return nil
 }
 
-func (cb *CricuitBreaker) beforeExecute() (uint32, error) {
+func (cb *CircuitBreaker) beforeExecute() (uint32, error) {
 	now := time.Now().Unix()
 	state, cycle := cb.refreshState(now)
 	if state == StateOpen {
@@ -106,7 +106,7 @@ func (cb *CricuitBreaker) beforeExecute() (uint32, error) {
 	return cycle, nil
 }
 
-func (cb *CricuitBreaker) afterExecute(cycle uint32, success bool) {
+func (cb *CircuitBreaker) afterExecute(cycle uint32, success bool) {
 	now := time.Now().Unix()
 	state, newCycle := cb.refreshState(now)
 	if cycle != newCycle { // 其它请求导致熔断器状态发生变化，不做后续操作
@@ -119,7 +119,7 @@ func (cb *CricuitBreaker) afterExecute(cycle uint32, success bool) {
 	}
 }
 
-func (cb *CricuitBreaker) onSuccess(state uint32, now int64) {
+func (cb *CircuitBreaker) onSuccess(state uint32, now int64) {
 	switch state {
 	case StateClosed:
 		cb.s.success()
@@ -130,7 +130,7 @@ func (cb *CricuitBreaker) onSuccess(state uint32, now int64) {
 	}
 }
 
-func (cb *CricuitBreaker) onFailure(state uint32, now int64) {
+func (cb *CircuitBreaker) onFailure(state uint32, now int64) {
 	switch state {
 	case StateClosed:
 		if cb.s.failure() >= cb.threshold {
@@ -144,7 +144,7 @@ func (cb *CricuitBreaker) onFailure(state uint32, now int64) {
 	}
 }
 
-func (cb *CricuitBreaker) refreshState(now int64) (state, cycle uint32) {
+func (cb *CircuitBreaker) refreshState(now int64) (state, cycle uint32) {
 	expire := cb.openExpire
 	if cb.state == StateOpen && expire < now {
 		// 熔断器处于开启状态，并且已经经过了一个时间周期，状态切换为半开启状态
@@ -154,23 +154,23 @@ func (cb *CricuitBreaker) refreshState(now int64) (state, cycle uint32) {
 	return cb.state, cb.cycle
 }
 
-func (cb *CricuitBreaker) switchState(oldState, newState uint32, now int64) {
+func (cb *CircuitBreaker) switchState(oldState, newState uint32, now int64) {
 	if atomic.CompareAndSwapUint32(&cb.state, oldState, newState) {
 		cb.newCycle(newState, now)
 	}
 }
 
-func (b *CricuitBreaker) newCycle(state uint32, now int64) {
-	if atomic.CompareAndSwapUint32(&b.cycle, b.cycle, b.cycle+1) {
-		b.s.clear()
-		expire := b.openExpire
+func (cb *CircuitBreaker) newCycle(state uint32, now int64) {
+	if atomic.CompareAndSwapUint32(&cb.cycle, cb.cycle, cb.cycle+1) {
+		cb.s.clear()
+		expire := cb.openExpire
 		var newExpire int64
 		switch state {
 		case StateOpen:
-			newExpire = now + b.openInterval
+			newExpire = now + cb.openInterval
 		case StateHalfOpen, StateClosed:
 			newExpire = 0
 		}
-		atomic.CompareAndSwapInt64(&b.openExpire, expire, newExpire)
+		atomic.CompareAndSwapInt64(&cb.openExpire, expire, newExpire)
 	}
 }
